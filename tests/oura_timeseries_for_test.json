@@ -1,0 +1,23 @@
+{
+  "query_params": { "start_date": "2023-11-01", "end_date": "2024-01-03" },
+  "data": [
+    {
+      "date": "2023-11-02",
+      "heart_rate": {
+        "interval": 300.0,
+        "items": [null, null, null, 43.0, 43.0, 41.0],
+        "timestamp": "2023-11-01T22:36:48.000+02:00"
+      },
+      "hrv": {
+        "interval": 300.0,
+        "items": [null, null, null, 54.0, 98.0, 67.0],
+        "timestamp": "2023-11-01T22:36:48.000+02:00"
+      }
+    },
+    {
+      "date": "2023-11-03",
+      "heart_rate": null,
+      "hrv": null
+    }
+  ]
+}
