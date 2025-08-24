@@ -4,9 +4,15 @@ import streamlit as st
 from loguru import logger
 from plotly import express as px
 
-from oura_analysis.settings import DATA_FOLDER
+from oura_analysis.settings import DATA_FOLDER, REPO_ROOT
 
 st.set_page_config(page_title="Oura Sleep Analysis", layout="wide")
+
+
+def load_query(name: str) -> str:
+    query_file = REPO_ROOT / name
+    with open(query_file, "r") as f:
+        return f.read()
 
 
 def main():
@@ -65,82 +71,14 @@ def main():
 
     # Create a combined analyis table
     # join the tables on sleep_score.previous_day and tags.start_day
-
-    combined_query = """
-        CREATE OR REPLACE TABLE analysis_table AS
-        WITH tags_day AS (
-            SELECT
-                start_day,
-                /* Count all caffeine-related tags */
-                COUNT(*) FILTER (
-                    WHERE
-                        comment = 'Coffee'
-                        OR tag_type_code IN ('tag_generic_coffee','tag_generic_caffeine')
-                        OR (tag_type_code = 'custom' AND custom_name = 'Mate')
-                ) AS previous_day_caffeine_count,
-                MAX(
-                    CASE
-                        WHEN comment = 'Coffee' THEN TRUE
-                        WHEN tag_type_code IN ('tag_generic_coffee','tag_generic_caffeine') THEN TRUE
-                        WHEN tag_type_code = 'custom' AND custom_name = 'Mate' THEN TRUE
-                        ELSE FALSE
-                    END
-                ) AS previous_day_caffeine,
-                LIST(comment) AS all_comments,
-                LIST(tag_type_code) AS all_tag_types
-            FROM tags
-            GROUP BY start_day
-        )
-        SELECT
-            s.day AS sleep_date,
-            s.score AS sleep_score,
-            t.all_comments,
-            t.all_tag_types,
-            COALESCE(t.previous_day_caffeine, FALSE) AS previous_day_caffeine,
-            COALESCE(t.previous_day_caffeine_count, 0) AS previous_day_caffeine_count
-        FROM sleep_score s
-        LEFT JOIN tags_day t
-            ON s.previous_day = t.start_day
-        ORDER BY s.day
-    """
-    duckdb_conn.execute(combined_query)
+    analysis_query = load_query("oura_analysis/analysis_query.sql")
+    duckdb_conn.execute(analysis_query)
     combined_query_result = duckdb_conn.execute(
         "SELECT * FROM analysis_table"
     ).fetch_df()
     st.write("### Sample rows from analysis_table")
     st.write(f"Total rows in analysis_table: {len(combined_query_result)}")
     st.dataframe(combined_query_result)
-
-    # Create stats for both groups, caffeine and no caffeine
-    # sleep_score -> min, max, mean, median and also count entries
-    caffeine_stats = duckdb_conn.execute(
-        """
-        SELECT
-            MIN(sleep_score) AS min,
-            MAX(sleep_score) AS max,
-            AVG(sleep_score) AS mean,
-            MEDIAN(sleep_score) AS median,
-            COUNT(*) AS count
-        FROM analysis_table
-        WHERE previous_day_caffeine = TRUE
-        """
-    ).fetch_df()
-
-    no_caffeine_stats = duckdb_conn.execute(
-        """
-        SELECT
-            MIN(sleep_score) AS min,
-            MAX(sleep_score) AS max,
-            AVG(sleep_score) AS mean,
-            MEDIAN(sleep_score) AS median,
-            COUNT(*) AS count
-        FROM analysis_table
-        WHERE previous_day_caffeine = FALSE
-        """
-    ).fetch_df()
-
-    logger.info(f"Caffeine group stats:\n{caffeine_stats}")
-    logger.info(f"No caffeine group stats:\n{no_caffeine_stats}")
 
     # Now lets also create some plots
     fig = px.histogram(
