@@ -1,6 +1,8 @@
 from __future__ import annotations
-import pandas as pd
+
 from pathlib import Path
+
+import pandas as pd
 
 
 class OuraData:
@@ -15,5 +17,4 @@ class OuraData:
     @staticmethod
     def from_path(path: Path) -> OuraData:
         """Loads data from a path"""
-        data = pd.read_csv(path, header=0)
-        return OuraData(pd.read_csv(path))
+        return OuraData(pd.read_csv(path, sep=";", header=0))
