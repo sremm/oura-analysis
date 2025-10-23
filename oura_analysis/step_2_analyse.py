@@ -15,10 +15,7 @@ def load_query(name: str) -> str:
         return f.read()
 
 
-def main():
-    sleep_score_file = DATA_FOLDER / "sleep_score_data_2020-05-01_2026-01-01.json"
-    sleep_data_file = DATA_FOLDER / "sleep_data_2020-05-01_2026-01-01.json"
-    tags_file = DATA_FOLDER / "tags_data_2020-05-01_2026-01-01.json"
+def duckdb_connect() -> duckdb.DuckDBPyConnection:
     db_filename = DATA_FOLDER / "sleep_analysis_2020-05-01_2026-01-01.duckdb"
 
     # as of now recreated each time when script is run
@@ -26,12 +23,27 @@ def main():
         db_filename.unlink()
 
     duckdb_conn = duckdb.connect(database=db_filename)
+    return duckdb_conn
+
+
+def load_data(duckdb_conn: duckdb.DuckDBPyConnection) -> tuple:
+    ## DATA LOADING
+    sleep_score_file = DATA_FOLDER / "sleep_score_data_2020-05-01_2026-01-01.json"
+    sleep_data_file = DATA_FOLDER / "sleep_data_2020-05-01_2026-01-01.json"
+    tags_file = DATA_FOLDER / "tags_data_2020-05-01_2026-01-01.json"
 
     logger.info("Loading sleep data")
     sleep_score_data = duckdb_conn.read_json(sleep_score_file)
     sleep_data = duckdb_conn.read_json(sleep_data_file)
     tags_data = duckdb_conn.read_json(tags_file)
+    return sleep_score_data, sleep_data, tags_data
 
+
+def main():
+    duckdb_conn = duckdb_connect()
+    sleep_score_data, sleep_data, tags_data = load_data(duckdb_conn)
+
+    ## DATA PREPARATION
     logger.info("Creating tables in DuckDB")
     duckdb_conn.execute(
         "CREATE OR REPLACE TABLE sleep_score AS SELECT * FROM sleep_score_data"
@@ -47,27 +59,10 @@ def main():
         f"Tags table columns: {duckdb_conn.execute('DESCRIBE tags').fetchall()}"
     )
 
-    # print rows from each table with fetch_df
-    sleep_rows = duckdb_conn.execute("SELECT * FROM sleep_score").fetch_df()
-    tags_rows = duckdb_conn.execute("SELECT * FROM tags").fetch_df()
-    st.write("### Rows from sleep_score table")
-    st.write(f"Total rows in sleep_score table: {len(sleep_rows)}")
-    st.dataframe(sleep_rows)
-
-    st.write("### Rows from tags table")
-    st.write(f"Total rows in tags table: {len(tags_rows)}")
-    st.dataframe(tags_rows)
-
     # Add previous day to sleep table
     logger.info("Adding previous_day column to sleep_score table")
     duckdb_conn.execute("ALTER TABLE sleep_score ADD COLUMN previous_day DATE")
     duckdb_conn.execute("UPDATE sleep_score SET previous_day = day - 1")
-
-    sleep_query_result = duckdb_conn.execute(
-        "SELECT * FROM sleep_score LIMIT 5"
-    ).fetch_df()
-    st.write("### Sample rows from sleep_score table with previous_day")
-    st.dataframe(sleep_query_result)
 
     # Create a combined analyis table
     # join the tables on sleep_score.previous_day and tags.start_day
@@ -76,10 +71,12 @@ def main():
     combined_query_result = duckdb_conn.execute(
         "SELECT * FROM analysis_table"
     ).fetch_df()
+
     st.write("### Sample rows from analysis_table")
     st.write(f"Total rows in analysis_table: {len(combined_query_result)}")
     st.dataframe(combined_query_result)
 
+    ## PLOTTING
     # Now lets also create some plots
     fig = px.histogram(
         combined_query_result,
@@ -134,6 +131,7 @@ def main():
     st.dataframe(grouped_stats)
 
     st.write("### Caffeine timing vs Sleep Score")
+
     caffeine_timing = duckdb_conn.execute(
         """
         SELECT
