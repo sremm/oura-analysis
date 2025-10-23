@@ -84,21 +84,17 @@ def main():
     fig = px.histogram(
         combined_query_result,
         x="sleep_score",
-        color="previous_day_caffeine",
+        color="caffeine_timing",
         title="Sleep Score by Previous Day Caffeine",
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # Daily chart showing sleep score, and scatter plot point colored by previous_day_caffeine
-    # convert previous_day_caffeine_count to a categorical variable
-    combined_query_result["previous_day_caffeine_count"] = combined_query_result[
-        "previous_day_caffeine_count"
-    ].astype(str)
+    # Daily chart showing sleep score, and scatter plot point colored by caffeine timing
     daily_fig = px.scatter(
         combined_query_result,
         x="sleep_date",
         y="sleep_score",
-        color="previous_day_caffeine_count",
+        color="caffeine_timing",
         title="Daily Sleep Score",
     )
     st.plotly_chart(daily_fig, use_container_width=True)
@@ -137,6 +133,38 @@ def main():
     grouped_stats = pd.concat([grouped_stats, more_than_one_stats], ignore_index=True)
     st.dataframe(grouped_stats)
 
+    st.write("### Caffeine timing vs Sleep Score")
+    caffeine_timing = duckdb_conn.execute(
+        """
+        SELECT
+            COUNT(*) AS caffeine_count,
+            EXTRACT(
+                'hour'
+                from start_time::timestamp
+            ) AS caffeine_hour
+        FROM tags
+        WHERE comment = 'Coffee'
+            OR tag_type_code IN ('tag_generic_coffee', 'tag_generic_caffeine')
+            OR (
+                tag_type_code = 'custom'
+                AND custom_name = 'Mate'
+            )
+        GROUP BY caffeine_hour
+        ORDER BY caffeine_hour
+        """
+    )
+    caffeine_timing_df = caffeine_timing.fetch_df()
+    # st.dataframe(caffeine_timing_df)
+    # Add bar chart showing caffeine counts by hour
+    # y axis is count of caffeine events
+    # x axis is hour of day
+    caffeine_timing_fig = px.bar(
+        caffeine_timing_df,
+        x="caffeine_hour",
+        y="caffeine_count",
+        title="Caffeine Events by Hour of Day",
+    )
+    st.plotly_chart(caffeine_timing_fig, use_container_width=True)
     duckdb_conn.close()
 
 
