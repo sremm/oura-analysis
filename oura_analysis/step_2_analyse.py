@@ -26,7 +26,7 @@ def duckdb_connect() -> duckdb.DuckDBPyConnection:
     return duckdb_conn
 
 
-def load_data(duckdb_conn: duckdb.DuckDBPyConnection) -> tuple:
+def load_data_and_prepare_data(duckdb_conn: duckdb.DuckDBPyConnection) -> tuple:
     ## DATA LOADING
     sleep_score_file = DATA_FOLDER / "sleep_score_data_2020-05-01_2026-01-01.json"
     sleep_data_file = DATA_FOLDER / "sleep_data_2020-05-01_2026-01-01.json"
@@ -36,12 +36,6 @@ def load_data(duckdb_conn: duckdb.DuckDBPyConnection) -> tuple:
     sleep_score_data = duckdb_conn.read_json(sleep_score_file)
     sleep_data = duckdb_conn.read_json(sleep_data_file)
     tags_data = duckdb_conn.read_json(tags_file)
-    return sleep_score_data, sleep_data, tags_data
-
-
-def main():
-    duckdb_conn = duckdb_connect()
-    sleep_score_data, sleep_data, tags_data = load_data(duckdb_conn)
 
     ## DATA PREPARATION
     logger.info("Creating tables in DuckDB")
@@ -68,18 +62,21 @@ def main():
     # join the tables on sleep_score.previous_day and tags.start_day
     analysis_query = load_query("oura_analysis/analysis_query.sql")
     duckdb_conn.execute(analysis_query)
-    combined_query_result = duckdb_conn.execute(
-        "SELECT * FROM analysis_table"
-    ).fetch_df()
 
+
+def main():
+    duckdb_conn = duckdb_connect()
+    load_data_and_prepare_data(duckdb_conn)
+
+    analysis_table = duckdb_conn.execute("SELECT * FROM analysis_table").fetch_df()
     st.write("### Sample rows from analysis_table")
-    st.write(f"Total rows in analysis_table: {len(combined_query_result)}")
-    st.dataframe(combined_query_result)
+    st.write(f"Total rows in analysis_table: {len(analysis_table)}")
+    st.dataframe(analysis_table)
 
     ## PLOTTING
     # Now lets also create some plots
     fig = px.histogram(
-        combined_query_result,
+        analysis_table,
         x="sleep_score",
         color="caffeine_timing",
         title="Sleep Score by Previous Day Caffeine",
@@ -88,7 +85,7 @@ def main():
 
     # Daily chart showing sleep score, and scatter plot point colored by caffeine timing
     daily_fig = px.scatter(
-        combined_query_result,
+        analysis_table,
         x="sleep_date",
         y="sleep_score",
         color="caffeine_timing",
@@ -130,7 +127,7 @@ def main():
     grouped_stats = pd.concat([grouped_stats, more_than_one_stats], ignore_index=True)
     st.dataframe(grouped_stats)
 
-    st.write("### Caffeine timing vs Sleep Score")
+    st.write("### Caffeine timing by hour of day")
 
     caffeine_timing = duckdb_conn.execute(
         """
@@ -153,9 +150,6 @@ def main():
     )
     caffeine_timing_df = caffeine_timing.fetch_df()
     # st.dataframe(caffeine_timing_df)
-    # Add bar chart showing caffeine counts by hour
-    # y axis is count of caffeine events
-    # x axis is hour of day
     caffeine_timing_fig = px.bar(
         caffeine_timing_df,
         x="caffeine_hour",
