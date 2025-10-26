@@ -30,12 +30,13 @@ def load_query(name: str) -> str:
         return f.read()
 
 
-def duckdb_connect() -> duckdb.DuckDBPyConnection:
+def duckdb_connect(new_file: bool = True) -> duckdb.DuckDBPyConnection:
     db_filename = DATA_FOLDER / "sleep_analysis_2020-05-01_2026-01-01.duckdb"
 
-    # as of now recreated each time when script is run
-    if db_filename.exists():
-        db_filename.unlink()
+    if new_file:
+        # as of now recreated each time when script is run
+        if db_filename.exists():
+            db_filename.unlink()
 
     duckdb_conn = duckdb.connect(database=db_filename)
     return duckdb_conn
@@ -62,7 +63,10 @@ def load_base_data_into_db(duckdb_conn: duckdb.DuckDBPyConnection) -> tuple:
 
     logger.info("Inspecting tables")
     logger.info(
-        f"Sleep table columns: {duckdb_conn.execute('DESCRIBE sleep_score').fetchall()}"
+        f"Sleep score table columns: {duckdb_conn.execute('DESCRIBE sleep_score').fetchall()}"
+    )
+    logger.info(
+        f"Sleep data table columns: {duckdb_conn.execute('DESCRIBE sleep').fetchall()}r"
     )
     logger.info(
         f"Tags table columns: {duckdb_conn.execute('DESCRIBE tags').fetchall()}"

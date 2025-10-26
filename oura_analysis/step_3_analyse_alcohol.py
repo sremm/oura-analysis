@@ -23,8 +23,10 @@ def main():
     duckdb_conn = duckdb_connect()
     load_data_and_prepare_data(duckdb_conn)
 
-    analysis_table = duckdb_conn.execute("SELECT * FROM analysis_table").fetch_df()
-    st.write("### Sample rows from analysis_table")
+    analysis_table = duckdb_conn.execute(
+        "SELECT * FROM analysis_table where len(alcohol_hours) > 0"
+    ).fetch_df()
+    st.write("### Sample rows from analysis_table, where alcohol was consumed")
     st.write(f"Total rows in analysis_table: {len(analysis_table)}")
     st.dataframe(analysis_table)
 
