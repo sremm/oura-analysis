@@ -17,7 +17,13 @@ And the few times I did drink after 1PM. Also had both low and high sleep scores
 
 ![alt text](image-3.png)
 
-**Conclusion** my coffee consuption habits do not have a noticable effect on my sleep score.
+**Coffee Conclusion** my coffee consuption habits do not have a noticable effect on my sleep score.
+
+## Alcohol intake
+
+Mostly I have drunk in the afternon or evening.
+
+![alt text](image-4.png)
 
 # Stuff to try
 
