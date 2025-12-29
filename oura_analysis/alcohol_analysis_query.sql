@@ -26,7 +26,7 @@ CREATE OR REPLACE TABLE analysis_table AS WITH -- CTE to get alcohol related tag
         SELECT *,
             EXTRACT(
                 'hour'
-                from start_time::TIMESTAMPTZ
+                from start_time::TIMESTAMPTZ -- TODO I do not understand this conversion, it does not give me UTC nor the local time, eg +2 was just +1
             ) AS alcohol_hour
         FROM start_day_adjusted_tags
         WHERE tag_type_code IN (
